@@ -91,6 +91,17 @@ static int install_raw_file(struct img_type *img,
 		close(fdout);
 
 		umount(DATADST_DIR);
+	} else if (strlen(img->device) == 0 && strlen(img->filesystem) == 0 &&
+			strlen(img->path)) {
+		/* Write file directly to the current filesystem */
+		TRACE("Installing file %s to %s\n", img->fname, img->path);
+		fdout = openfileoutput(img->path);
+		offset = img->offset;
+		ret = copyfile(img->fdin, fdout, img->size, &offset, 0, img->compressed, &checksum);
+		if (ret < 0) {
+			ERROR("Error copying extracted file\n");
+		}
+		close(fdout);
 	}
 
 	return ret;
