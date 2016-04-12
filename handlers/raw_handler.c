@@ -66,30 +66,35 @@ static int install_raw_file(struct img_type *img,
 	int ret = 0;
 	uint32_t checksum = 0;
 	unsigned long offset = 0;
+	int use_mount = (strlen(img->device) && strlen(img->filesystem)) ? 1 : 0;
 
-	if (strlen(img->device) &&
-	    strlen(img->filesystem) && strlen(img->path)) {
+	if (strlen(img->path) == 0) {
+		TRACE("Missing path attribute");
+		return -1;
+	}
 
+	if (use_mount) {
 		ret = mount(img->device, DATADST_DIR, img->filesystem, 0, NULL);
 		if (ret) {
 			ERROR("Device %s with filesystem %s cannot be mounted",
-				img->device, img->filesystem);
+			        img->device, img->filesystem);
 			return -1;
 		}
+		snprintf(path, sizeof(path), "%s%s", DATADST_DIR, img->path);
+	} else {
+		snprintf(path, sizeof(path), "%s", img->path);
+	}
 
-		snprintf(path, sizeof(path), "%s%s",
-			DATADST_DIR, img->path);
+	TRACE("Installing file %s to %s\n", img->fname, path);
+	fdout = openfileoutput(path);
+	offset = img->offset;
+	ret = copyfile(img->fdin, fdout, img->size, &offset, 0, img->compressed, &checksum);
+	if (ret < 0) {
+		ERROR("Error copying extracted file\n");
+	}
+	close(fdout);
 
-		TRACE("Installing file %s on %s\n",
-			img->fname, path);
-		fdout = openfileoutput(path);
-		offset = img->offset;
-		ret = copyfile(img->fdin, fdout, img->size, &offset, 0, img->compressed, &checksum);
-		if (ret< 0) {
-			ERROR("Error copying extracted file\n");
-		}
-		close(fdout);
-
+	if (use_mount) {
 		umount(DATADST_DIR);
 	}
 
